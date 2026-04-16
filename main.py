@@ -1,27 +1,30 @@
 import streamlit as st
+from PIL import Image
 
 st.set_page_config(page_title="MeatCalc Pro", page_icon="🥩")
 
-# Título
 st.title("🥩 MeatCalc Pro")
-st.write("Versión estable para iPhone")
+st.write("Sube la foto de la etiqueta o ingresa el monto.")
 
-# Inicializar lista si no existe
 if 'piezas' not in st.session_state:
     st.session_state.piezas = []
 
-# Entrada de datos simple
-monto_input = st.number_input("Monto de la etiqueta ($)", min_value=0, step=1, value=0)
+# --- SECCIÓN DE CARGA (FOTO O MANUAL) ---
+tab1, tab2 = st.tabs(["📸 Foto (OCR)", "⌨️ Manual"])
 
-# Botón directo (sin Form)
-if st.button("➕ AÑADIR PIEZA"):
-    if monto_input > 0:
-        st.session_state.piezas.append(monto_input)
-        st.success(f"Agregado: ${monto_input:,}")
-    else:
-        st.warning("Ingresa un monto mayor a 0")
+with tab1:
+    foto = st.camera_input("Toma foto a la etiqueta")
+    if foto:
+        st.warning("⚠️ El escaneo automático requiere mucha memoria. Por ahora, mira el monto en la foto y regístralo en la pestaña 'Manual' para evitar que la app se cierre.")
 
-# Cálculos y Resumen
+with tab2:
+    monto_input = st.number_input("Monto de la etiqueta ($)", min_value=0, step=1, value=0)
+    if st.button("➕ AÑADIR PIEZA"):
+        if monto_input > 0:
+            st.session_state.piezas.append(monto_input)
+            st.success(f"Agregado: ${monto_input:,}")
+
+# --- CÁLCULOS ---
 if st.session_state.piezas:
     st.divider()
     total_bruto = sum(st.session_state.piezas)
@@ -32,16 +35,10 @@ if st.session_state.piezas:
 
     st.subheader(f"Total: {len(st.session_state.piezas)} piezas")
     
-    # Mostrar lista de lo que vas sumando
-    with st.expander("Ver detalle de piezas"):
-        for i, p in enumerate(st.session_state.piezas):
-            st.write(f"Pieza {i+1}: ${p:,}")
-
-    # Cuadro de resultados
     st.info(f"**NETO:** ${int(neto):,}")
     st.info(f"**IVA (19%):** ${int(iva):,}")
     st.info(f"**RETENCIÓN (5%):** ${int(retencion):,}")
-    st.success(f"### **TOTAL A PAGAR: ${int(total_final):,}**")
+    st.success(f"### **TOTAL FACTURA: ${int(total_final):,}**")
 
     if st.button("🗑️ Vaciar todo"):
         st.session_state.piezas = []
