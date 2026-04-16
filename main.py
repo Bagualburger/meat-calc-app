@@ -1,75 +1,42 @@
 import streamlit as st
-import easyocr
 from PIL import Image
-import numpy as np
-import re
+import pandas as pd
 
-# Configuración de la App
+# Configuración ultra liviana
 st.set_page_config(page_title="MeatCalc Pro", page_icon="🥩")
-st.title("🥩 MeatCalc Pro: OCR Edition")
-st.subheader("Escanea tus etiquetas y calcula la factura")
 
-# Inicializar el lector OCR (Soporta Español e Inglés)
-@st.cache_resource
-def load_ocr():
-    return easyocr.Reader(['es'])
-
-reader = load_ocr()
-
-# Estado de la app (para guardar múltiples piezas)
 if 'piezas' not in st.session_state:
     st.session_state.piezas = []
 
-# --- INTERFAZ DE CARGA ---
-uploaded_file = st.file_uploader("📷 Toma una foto o sube la etiqueta", type=["jpg", "png", "jpeg"])
+st.title("🥩 MeatCalc Pro")
+st.write("Ingresa el monto de la etiqueta manualmente para un cálculo exacto.")
 
-if uploaded_file:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Etiqueta cargada", width=300)
+# Entrada manual rápida (mientras arreglamos el sensor automático)
+with st.form("add_form", clear_on_submit=True):
+    monto = st.number_input("Monto total de la etiqueta ($)", min_value=0, step=1)
+    submit = st.form_submit_button("Añadir Pieza")
     
-    if st.button("🔍 Escanear y Agregar"):
-        # Convertir imagen para OCR
-        img_np = np.array(image)
-        results = reader.readtext(img_np)
-        
-        # Lógica para encontrar el precio (Buscamos el número después de "$")
-        # O el número más grande que parezca un precio total
-        textos = [res[1] for res in results]
-        precios_encontrados = []
-        
-        for t in textos:
-            # Limpiar el texto para dejar solo números (maneja puntos y comas)
-            limpio = re.sub(r'[^\d]', '', t)
-            if limpio and 1000 < int(limpio) < 50000: # Rango normal de una pieza
-                precios_encontrados.append(int(limpio))
-        
-        if precios_encontrados:
-            monto = max(precios_encontrados) # El total suele ser el número más grande
-            st.session_state.piezas.append(monto)
-            st.success(f"Pieza agregada: ${monto:,}")
-        else:
-            st.error("No se detectó el precio. Intenta con una foto más clara.")
+    if submit and monto > 0:
+        st.session_state.piezas.append(monto)
+        st.success(f"¡Pieza de ${monto:,} añadida!")
 
-# --- CÁLCULOS TIPO FACTURA ---
+# Lógica de Factura
 if st.session_state.piezas:
-    st.divider()
-    total_etiquetas = sum(st.session_state.piezas)
-    neto = total_etiquetas / 1.19
+    total_bruto = sum(st.session_state.piezas)
+    neto = total_bruto / 1.19
     iva = neto * 0.19
     retencion = neto * 0.05
     total_final = neto + iva + retencion
 
-    # Mostrar Resumen (Como en tu diseño)
-    st.write(f"### RESUMEN FINAL ({len(st.session_state.piezas)} PIEZAS)")
+    st.divider()
+    st.subheader(f"Resumen: {len(st.session_state.piezas)} piezas")
     
     col1, col2 = st.columns(2)
-    with col1:
-        st.metric("VALOR NETO", f"${int(neto):,}")
-        st.metric("IVA (19%)", f"${int(iva):,}")
-    with col2:
-        st.metric("RETENCIÓN CARNE (5%)", f"${int(retencion):,}")
-        st.metric("TOTAL A PAGAR", f"${int(total_final):,}", delta_color="inverse")
+    col1.metric("NETO", f"${int(neto):,}")
+    col1.metric("IVA (19%)", f"${int(iva):,}")
+    col2.metric("RETENCIÓN (5%)", f"${int(retencion):,}")
+    col2.metric("TOTAL A PAGAR", f"${int(total_final):,}")
 
-    if st.button("🗑️ Borrar lista"):
+    if st.button("Vaciar Carrito"):
         st.session_state.piezas = []
         st.rerun()
